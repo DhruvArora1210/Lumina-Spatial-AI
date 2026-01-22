@@ -1,0 +1,15 @@
+# Computer Vision & AI
+ultralytics          # YOLOv8 Detection
+opencv-python        # Camera & UI handling
+sentence-transformers # CLIP ViT-B-32 Embeddings
+torch                # Backend for CLIP/YOLO
+numpy
+
+# Database
+qdrant-client        # Vector Database connection
+
+# Audio & Speech
+pyttsx3              # Text-to-Speech (Speaking)
+SpeechRecognition    # Speech-to-Text (Listening)
+pvrecorder           # Stable audio capture for Mac/PC
+pyaudio              # PortAudio interface
