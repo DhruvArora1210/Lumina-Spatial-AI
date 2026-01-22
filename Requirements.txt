@@ -1,0 +1,53 @@
+1. Core Python Dependencies
+Create a file named requirements.txt and paste the following. These are extracted directly from imports in main.py, agents.py, and live_vision.py.
+
+# Computer Vision & AI
+ultralytics          # YOLOv8 Detection
+opencv-python        # Camera & UI handling
+sentence-transformers # CLIP ViT-B-32 Embeddings
+torch                # Backend for CLIP/YOLO
+numpy
+
+# Database
+qdrant-client        # Vector Database connection
+
+# Audio & Speech
+pyttsx3              # Text-to-Speech (Speaking)
+SpeechRecognition    # Speech-to-Text (Listening)
+pvrecorder           # Stable audio capture for Mac/PC
+pyaudio              # PortAudio interface
+
+
+
+
+
+2. System-Level Requirements
+Python code relies on two external components that cannot be installed via pip:
+
+Qdrant Engine (MANDATORY): database.py looks for a Qdrant instance on localhost:6333. The easiest way to run this is via Docker:
+
+Bash
+docker run -p 6333:6333 qdrant/qdrant
+FFmpeg (Audio Processing): For the SpeechRecognition library to handle different audio formats properly.
+
+Mac: brew install ffmpeg
+
+Windows: Download from ffmpeg.org and add to Path.
+
+3. Hardware Requirements
+Webcam: Needed for live_vision.py to capture real-time data.
+
+Microphone: Needed for the listen() function in main.py.
+
+Internet Connection: Required the first time you run the code to download the YOLOv8 weights and the CLIP model (~600MB total).
+
+
+
+4. Execution Order (How to run)
+For your project to work without errors, follow this sequence:
+
+Start Qdrant: Ensure Docker is running the Qdrant image.
+
+Initialize Database: Run database.py once to create the spatial_memory collection.
+
+Launch Vision: Run python live_vision.py. This will trigger main.py and wake up the agents.
