@@ -13,7 +13,7 @@ Lumina is an assistive AI system designed for the visually impaired. It transfor
 Bash
 
 # Clone the repository
-git clone <https://github.com/DhruvArora1210/Lumina-Spatial-AI/>
+git clone <https://github.com/DhruvArora1210/Lumina-Spatial-AI>
 cd Lumina-Spatial-AI
 
 # Install dependencies
