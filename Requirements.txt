@@ -1,5 +1,5 @@
 1. Core Python Dependencies
-Create a file named requirements.txt and paste the following. These are extracted directly from imports in main.py, agents.py, and live_vision.py.
+These are extracted directly from imports in main.py, agents.py, and live_vision.py.
 
 # Computer Vision & AI
 ultralytics          # YOLOv8 Detection
