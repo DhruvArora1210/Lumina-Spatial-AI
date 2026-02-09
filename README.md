@@ -64,7 +64,7 @@ Ollama (Running llama3 or mistral)
 SETUP 
 --------------------------------------------
 # 1. Clone the repository
-git clone https://github.com/your-username/lumina.git
+git clone https://github.com/DhruvArora1210/Lumina-Spatial-AI.git
 cd lumina
 
 # 2. Install dependencies
