@@ -1,72 +1,89 @@
-import asyncio
+import threading
 import time
-import os
-import wave
-import struct
 import pyttsx3
 import speech_recognition as sr
-from typing import Optional
+from models import CoreSystem, WorldState
+from live_vision import VisionCore
 
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
+# --- CONFIG ---
+print("\n--- SYSTEM BOOT ---")
+cam_source = input("Enter Camera URL (or Press Enter): ").strip()
+SOURCE = cam_source if cam_source else 0
 
-from models import Pose6DOF, Coordinates3D
-from database import MemoryVault
-from agents import WatcherAgent, ArchivistAgent, LibrarianAgent, GuideAgent
+app = CoreSystem()
+is_speaking = threading.Event()
+app.mode = "SLEEPING"
 
+def speech_worker(q):
+    engine = pyttsx3.init()
+    while True:
+        text = q.get()
+        if text:
+            is_speaking.set()
+            try:
+                engine.say(text)
+                engine.runAndWait()
+            except: pass
+            is_speaking.clear()
 
-class LuminaSystem:
-    def __init__(self, db_host: str = "localhost", db_port: int = 6333):
-        self.vault = MemoryVault(host=db_host, port=db_port)
-        from sentence_transformers import SentenceTransformer
-        self.embedding_model = SentenceTransformer('clip-ViT-B-32', device='cpu')
+def main_loop():
+    threading.Thread(target=speech_worker, args=(app.tts_q,), daemon=True).start()
+    vision = VisionCore(app, source=SOURCE)
+    vision.start()
 
-        self.watcher = WatcherAgent()
-        self.archivist = ArchivistAgent(self.vault, self.embedding_model)
-        self.librarian = LibrarianAgent(self.vault, self.embedding_model)
-        self.guide = GuideAgent()
+    r = sr.Recognizer()
+    mic = sr.Microphone()
+    
+    with mic as source:
+        print("🎧 [AUDIO] Calibrating...")
+        r.adjust_for_ambient_noise(source, duration=1)
+        r.energy_threshold = 250 # More sensitive
+        r.pause_threshold = 0.8  # Faster end-of-speech detection
 
-        self.speech_engine = pyttsx3.init()
-        self.speech_engine.setProperty('rate', 175)
-        self.recognizer = sr.Recognizer()
-        print("✅ LUMINA ENGINE: Hybrid Mode (Voice + Text) Online")
+    print("\n💤 SYSTEM ASLEEP. Say 'HELLO' to wake.\n")
 
-    def say(self, text: str):
-        """Speak out loud."""
+    while True:
         try:
-            print(f"🤖 Lumina says: {text}")
-            self.speech_engine.say(text)
-            self.speech_engine.runAndWait()
-        except Exception as e:
-            print(f"Speech error: {e}")
+            if is_speaking.is_set(): 
+                time.sleep(0.5)
+                continue
 
-    def listen(self) -> Optional[str]:
-        """Stable Mac Listener using PvRecorder."""
-        from pvrecorder import PvRecorder
-        path = "temp_capture.wav"
-        recorder = PvRecorder(device_index=-1, frame_length=512)
-        audio_data = []
-        try:
-            print("👂 Listening (4s)...")
-            recorder.start()
-            for _ in range(130):
-                frame = recorder.read()
-                audio_data.extend(frame)
-            recorder.stop()
-            with wave.open(path, 'w') as f:
-                f.setparams((1, 2, 16000, 512, "NONE", "NONE"))
-                f.writeframes(struct.pack("h" * len(audio_data), *audio_data))
-            with sr.AudioFile(path) as source:
-                audio = self.recognizer.record(source)
-                return self.recognizer.recognize_google(audio)
-        except Exception as e:
-            print(f"⚠️ Voice Error: {e}")
-            return None
-        finally:
-            recorder.delete()
-            if os.path.exists(path): os.remove(path)
+            with mic as source:
+                if app.mode == "SLEEPING":
+                    try: audio = r.listen(source, timeout=1.0, phrase_time_limit=2.0)
+                    except sr.WaitTimeoutError: continue
+                else:
+                    print(f"   [LISTENING] Window Open (10s)...")
+                    try: audio = r.listen(source, timeout=10.0, phrase_time_limit=5.0)
+                    except sr.WaitTimeoutError: 
+                        print("   [TIMEOUT] No command.")
+                        continue
 
-    async def observe_at_location(self, description, object_coords, observer_pose):
-        return await self.archivist.archive_observation(description, object_coords, int(time.time()), True)
+            try:
+                text = r.recognize_google(audio).lower()
+            except: continue
 
-    async def locate_object(self, query: str, user_pose: Pose6DOF):
-        return await self.guide.provide_guidance(query, user_pose, self.librarian)
+            if app.mode == "SLEEPING":
+                if "hello" in text or "wake" in text:
+                    print(f"⚡ [WAKE]: '{text}'")
+                    app.tts_q.put("Online.")
+                    app.mode = "AWAKE"
+                continue
+
+            if app.mode == "AWAKE":
+                if "bye" in text or "sleep" in text:
+                    print(f"💤 [SLEEP]: '{text}'")
+                    app.tts_q.put("Offline.")
+                    app.mode = "SLEEPING"
+                    continue
+
+                print(f"🎤 [CMD]: '{text}'")
+                res = app.coordinator.run_workflow(text)
+                if res["speech"]: app.tts_q.put(res["speech"])
+                if res.get("status") == "SLEEP": app.mode = "SLEEPING"
+
+        except KeyboardInterrupt: break
+        except Exception: pass
+
+if __name__ == "__main__":
+    main_loop()
